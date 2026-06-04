@@ -1,0 +1,50 @@
+---
+title: Javascript
+description: Comprehensive guide
+---
+
+My recommend specific combinations of libraries and tools based on the complexity and goals of project. Below are the recommended stacks for each category:
+
+### **Simple Client-Side Apps**
+For straightforward projects, the sources suggest a combination that is easy to set up and has a low learning curve:
+*   **Routing:** React Router.
+*   **Data Fetching and Statemanagement:** 1. Axios + Zustand / 2. Axios + Tanstack Query + Context API / 3. Axios + Context API (Option 01, 03 No server state).
+*   **Forms:** React Hook Form or Tanstack Form (Prefered from shadcn).
+*   **Styling & UI:** Tailwind CSS, shadcn/ui, Lucide Icons.
+*   **Others:** React-Helmet-Async.
+
+### **Complex Enterprise Client Apps**
+For complex scenarios requiring advanced data management and consistent UIs, the following stack is recommended:
+*   **Routing:** React Router.
+*   **Data Fetching and State Management:** Axios + Redux Toolkit + RTK Query / Axios + TanStack Query + Zustand
+*   **Forms & Validation:** React Hook Form or Tanstack Form paired with Zod.
+*   **Styling & UI:** Emotion, Tailwind CSS, shadcn/ui, Lucide Icons.
+*   **Animations & Visualization:** Framer Motion, Recharts.
+*   **Others:** React-Helmet-Async.
+
+### **SEO and Content-Based Apps**
+For projects where SEO and performance are the main priorities, such as blogs or e-commerce sites:
+*   **Framework:** **Astro** (Gatsby is also mentioned as an ideal choice for rapid content-based development).
+*   **Styling & UI:** Tailwind CSS, shadcn/ui, and Lucide Icons.
+*   **Animations:** Framer Motion.
+
+### **Complex Full-Stack Apps**
+For projects requiring server-side logic and seamless database interaction, the sources highlight **Next.js** as the most versatile and future-proof option:
+
+Option 01 (Next.js):
+*   **Framework:** Next.js (referred to as "xray" in the transcript).
+*   **Data Fetching & State Management:** Next.js fetch and Zustand.
+*   **Forms & Validation:** React Hook Form or Tanstack Form paired with Zod.
+*   **Styling & UI:** Tailwind CSS, Emotion, shadcn/ui, Lucide Icons.
+*   **Animations:** Framer Motion.
+*   **Authentication:** Better Auth.
+
+
+Option 02 (Tanstack Ecosystem):
+*   **Framework:** TanStack Start.
+*   **Routing:** TanStack Router (built-in).
+*   **Data Fetching & State:** Axios + TanStack Query and Zustand/Tanstack Store.
+*   **Forms & Validation:** Tanstack Form paired with Zod.
+*   **Styling & UI:** Tailwind CSS, shadcn/ui, Lucide Icons, and shadcn tables (Tanstack Table).
+*   **Animations:** Framer Motion.
+*   **Authentication:** Better Auth.

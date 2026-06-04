@@ -1,0 +1,293 @@
+---
+title: JWT
+description: Json Web Token
+---
+
+# JWT Auth Workflow — Education Marketplace
+
+## TL;DR
+
+A **two-token rotation scheme**:
+
+- **Access token** → short-lived JWT (15 min), stateless, used to authorize API calls.
+- **Refresh token** → long-lived opaque random string (30 days), stored hashed in DB, used **only** to mint new access tokens.
+
+Web (SPA) and mobile (Expo) use the **same backend** but transport tokens differently:
+
+| | Web SPA | Mobile (Expo) |
+|---|---|---|
+| Where tokens live | `httpOnly` signed cookies | Expo SecureStore (Keychain / EncryptedSharedPreferences) |
+| How sent | Browser auto-attaches cookies | `Authorization: Bearer <access>` header |
+| CSRF | Yes — double-submit token | No — Bearer header is CSRF-immune |
+
+---
+
+## 1. Pieces of the system
+
+### Server side (`server/src/`)
+
+| File | Role |
+|---|---|
+| `shared/utils/tokens.js` | Sign/verify access JWT, generate + hash refresh tokens |
+| `shared/utils/cookies.js` | Cookie names + options (`em_access`, `em_refresh`) |
+| `modules/auth/auth.service.js` | `issueTokensForUser`, `rotateRefreshToken`, `revokeRefreshToken` |
+| `modules/auth/auth.controller.js` | `signup`, `login`, `refresh`, `logout`, `me` |
+| `modules/auth/auth.routes.js` | Endpoint wiring + rate limits |
+| `shared/middleware/auth.js` | `attachUser`, `requireAuth`, `requireRole` |
+| `jobs/cron.js` | Daily 02:10 cleanup of expired/revoked refresh tokens |
+
+### Client side
+
+| File | Role |
+|---|---|
+| `client/src/api/client.js` | SPA fetch wrapper — silent refresh on 401, CSRF |
+| `mobile/src/api/client.js` | Mobile fetch wrapper — Bearer header + silent refresh |
+| `mobile/src/auth/storage.js` | Secure token persistence on device |
+
+---
+
+## 2. What's in each token
+
+### Access token — JWT, HS256
+
+```js
+jwt.sign({ sub: user.id, role: user.role }, JWT_ACCESS_SECRET, {
+  expiresIn: '15m', algorithm: 'HS256',
+});
+```
+
+- **Stateless**: server doesn't store it; signature is the proof.
+- Payload = `sub` (user id) + `role` + `iat`/`exp`.
+- Verified on every protected request via `attachUser` middleware.
+
+### Refresh token — opaque random string, **NOT** a JWT
+
+```js
+crypto.randomBytes(64).toString('hex');                       // 128-char hex string
+crypto.createHash('sha256').update(token).digest('hex');      // what gets stored
+```
+
+- **Stateful**: every refresh token has a row in the `RefreshToken` table.
+- Plaintext value lives only in the user's cookie / SecureStore. The DB stores **only the SHA-256 hash**, so a leaked DB row can't be replayed.
+- Why not a JWT? Individual sessions need to be revocable; JWTs can't be revoked without a denylist. Random opaque tokens give that for free.
+
+---
+
+## 3. Where things are stored
+
+### Server DB — `RefreshToken` table
+
+```
+RefreshToken
+├── id          cuid
+├── userId      → User.id (cascade delete)
+├── tokenHash   sha256(plaintext)  ← UNIQUE
+├── userAgent   audit
+├── ip          audit
+├── expiresAt   now + 30 days
+├── revokedAt   nullable — set when rotated or logged out
+├── replacedBy  hash of the successor (rotation chain)
+└── createdAt
+```
+
+The `replacedBy` column enables **reuse detection** (see §4D).
+
+### Web SPA — two signed httpOnly cookies
+
+| Cookie | Contents | Path | maxAge | Flags |
+|---|---|---|---|---|
+| `em_access` | access JWT | `/` | 15 min | `httpOnly`, `secure` (prod), `sameSite=strict` (prod) / `lax` (dev), `signed` |
+| `em_refresh` | refresh token (plaintext) | `/api/auth` | 30 days | same as above |
+
+`em_refresh` is **scoped to `/api/auth`** — the browser doesn't even send it to other endpoints. Combined with `httpOnly` (no JS access) and signed cookies (cookie-parser HMAC), this is defense-in-depth.
+
+**No tokens ever exist in the SPA's JavaScript memory.**
+
+### Mobile — Expo SecureStore
+
+| Key | Backing store |
+|---|---|
+| `em.access` | iOS Keychain / Android EncryptedSharedPreferences (web fallback: AsyncStorage) |
+| `em.refresh` | same |
+
+Mobile sends `Authorization: Bearer <access>` and POSTs `{ refreshToken }` in the body to `/api/auth/refresh`. `credentials: 'omit'` is set explicitly so iOS NSURLSession doesn't quietly persist Set-Cookie headers from login responses.
+
+---
+
+## 4. The flows
+
+### A. Login
+
+```
+Client → POST /api/auth/login { email, password }
+
+Server:
+  1. authenticateUser → argon2 verify (uses dummy hash if user missing → no timing leak)
+  2. update lastLoginAt
+  3. issueTokensForUser:
+       - sign access JWT (15m)
+       - generate 64-byte random refresh token
+       - INSERT RefreshToken { tokenHash: sha256(token), userId, ua, ip, expiresAt }
+  4. Response:
+       Set-Cookie: em_access=...   (web reads this)
+       Set-Cookie: em_refresh=...  (web reads this)
+       JSON body: { user, tokens: { accessToken, refreshToken } }  (mobile reads this)
+```
+
+Both transports get both — each just ignores the half it doesn't need.
+
+### B. Authenticated request
+
+```
+Web:    Cookie: em_access=<jwt>          → req.signedCookies.em_access
+Mobile: Authorization: Bearer <jwt>       → header (takes precedence)
+
+attachUser:
+  1. verify JWT signature + expiry
+  2. SELECT user WHERE id = payload.sub  (revalidates status — handles SUSPENDED)
+  3. attach req.user
+
+requireAuth → 401 if no req.user
+requireRole(...) → 403 if role doesn't match
+```
+
+Bearer takes precedence so a request that explicitly sends `Authorization` is treated as Bearer-authed, which makes it CSRF-immune (a CSRF attacker can't forge custom headers).
+
+### C. Silent refresh on 401
+
+Both clients run the same pattern: a 401 triggers a **single** in-flight refresh, then the original request is replayed once.
+
+**Web:**
+```
+fetch(...) → 401
+  → POST /api/auth/refresh (cookies sent automatically)
+  → if ok, replay original (server set new cookies)
+  → if mutating, refetch CSRF token (cookie was rotated)
+```
+
+**Mobile:**
+```
+fetch(...) → 401
+  → POST /api/auth/refresh { refreshToken: <from SecureStore> }
+  → on success, save new {accessToken, refreshToken}; replay original
+  → on failure, call onAuthExpired() → AuthProvider redirects to login
+```
+
+A `refreshPromise` singleton prevents N concurrent 401s from stampeding N refreshes.
+
+### D. Refresh = rotation + reuse detection
+
+This is the security-critical bit:
+
+```
+POST /api/auth/refresh
+  presented = signed cookie OR body.refreshToken
+
+  hash = sha256(presented)
+  row  = SELECT RefreshToken WHERE tokenHash = hash
+
+  ┌─ row missing?       → 401 Invalid
+  ├─ row.revokedAt?     → REUSE DETECTED
+  │                       → revoke ALL active tokens for this user
+  │                       → 401 (forces full re-login on every device)
+  ├─ row.expiresAt past? → 401 Expired
+  ├─ user SUSPENDED?     → 403
+  │
+  └─ happy path (atomic transaction):
+       • UPDATE old row: revokedAt = now, replacedBy = sha256(newRefresh)
+       • INSERT new row: tokenHash = sha256(newRefresh), ...
+       • sign new access JWT
+       • return new pair (cookie + body)
+```
+
+**Why reuse detection matters.** If an attacker steals a refresh token and uses it:
+
+1. The attacker's request rotates the token — the legit user's stored token is now revoked.
+2. Next time the legit user refreshes, they present the now-revoked token.
+3. Server sees a revoked token being used → assumes theft → **revokes the entire family** for that user → forces re-login everywhere.
+
+Without rotation + reuse detection, a stolen refresh token is valid for 30 days silently.
+
+### E. Logout
+
+```
+POST /api/auth/logout (CSRF-protected)
+  → revokeRefreshToken: UPDATE row SET revokedAt = now WHERE tokenHash = sha256(presented)
+  → clearAuthCookies (em_access, em_refresh)
+  → 200 { ok: true }
+```
+
+The access token is **not** revoked — it's stateless and can't be. It just dies on its own ≤15 min later. This is the trade-off accepted by using JWT for access tokens.
+
+### F. Daily cleanup
+
+At 02:10 Australia/Melbourne, a node-cron job deletes:
+
+- Tokens whose `expiresAt` is past, **or**
+- Tokens revoked more than 30 days ago.
+
+Keeps the table from growing unbounded.
+
+---
+
+## 5. CSRF (web only)
+
+Refresh tokens in cookies bring a CSRF risk on mutating requests. Handled with the **double-submit cookie pattern**:
+
+- `GET /api/auth/csrf` → server returns a CSRF token, also sets a CSRF cookie.
+- SPA sends it back as `X-CSRF-Token` header on POST/PUT/PATCH/DELETE.
+- Server verifies cookie matches header.
+- On 403 `CSRF_INVALID`, client refetches token once and retries.
+
+Endpoints exempt from CSRF:
+
+- `/auth/signup`, `/auth/login` — no session yet to protect; protected by `SameSite=Strict` + auth rate limit.
+- `/auth/refresh` — `em_refresh` is `SameSite=Strict` and path-scoped to `/api/auth`; rate-limited.
+
+Bearer-authed requests (mobile) skip CSRF entirely because cross-site code can't set custom headers.
+
+---
+
+## 6. Token TTLs and config
+
+```
+ACCESS_TOKEN_TTL=15m              (string, parsed by jsonwebtoken)
+REFRESH_TOKEN_TTL_DAYS=30
+```
+
+Note: `cookies.js` hardcodes `15 * 60 * 1000` for the access cookie maxAge. If `ACCESS_TOKEN_TTL` changes, **update that line too**.
+
+Required secrets (each min 32 chars, validated at boot):
+
+- `JWT_ACCESS_SECRET` — signs/verifies access JWT
+- `JWT_REFRESH_SECRET` — declared but unused right now (refresh tokens are random, not JWT)
+- `COOKIE_SECRET` — signs the cookies themselves (cookie-parser)
+- `CSRF_SECRET` — CSRF token HMAC
+
+---
+
+## 7. Security properties (the "why")
+
+| Threat | Mitigation |
+|---|---|
+| Stolen access token | Dies within 15 min |
+| Stolen refresh token | Detected on next legit refresh → whole token family revoked |
+| DB dump | Only `sha256(token)` stored — can't be replayed |
+| XSS reads tokens | Web: `httpOnly` cookies. Mobile: SecureStore (out of JS reach) |
+| CSRF on web | `SameSite=Strict` + double-submit CSRF token + signed cookies + path scoping for refresh |
+| Account suspended after token issued | Every request reloads `user.status` from DB |
+| Timing attack on login | Always run argon2 verify, even when user not found |
+| Brute force | `authLimiter` on login/refresh, `signupLimiter` on signup |
+| Token table growth | Daily cron deletes expired/old-revoked rows |
+
+---
+
+## 8. Suggested talking order for dev team
+
+1. **Two tokens, two purposes** — access = stateless authz (JWT), refresh = stateful session (random + DB).
+2. **Where each one lives** — server DB (hashed), web cookies (httpOnly), mobile SecureStore.
+3. **Walk the login flow.**
+4. **Walk a normal API call** (Bearer vs cookie path).
+5. **Walk the refresh flow** — focus on rotation + reuse detection.
+6. **Logout + cleanup cron.**
+7. **CSRF on web** — and why mobile doesn't need it.
