@@ -1,3 +1,4 @@
+import PageCounter from '@/components/ui/PageCounter';
 import Link from 'next/link';
 
 export default function HomePage() {
@@ -11,6 +12,7 @@ export default function HomePage() {
         </Link>{' '}
         and see the documentation.
       </p>
+      <PageCounter />
     </div>
   );
 }
