@@ -2,10 +2,8 @@
 title: Hexagon Background
 description: A hexagon background pattern for your projects.
 ---
+Flat-top hexagon grid with customizable fill, border colors, hover highlight, ambient glow, and animated beam lines flowing along hex edges.
 
-```npm
-npx shadcn@latest add @commercn/hexagon-background
-```
 
 import { BlockPreview } from '@/components/block-preview';
 import HexagonsDemo from '@/packages/ui/backgrounds/hexagon/HexagonDemo'
@@ -17,8 +15,8 @@ import HexagonsDemo from '@/packages/ui/backgrounds/hexagon/HexagonDemo'
         </BlockPreview>
     </Tab>
   <Tab>
-  ```tsx
-  import Hexagons from "./Hexagons";
+  ```tsx title="index.tsx"
+import Hexagons from "./Hexagons";
 
 export default function HexagonsDemo() {
   return (
@@ -34,26 +32,11 @@ export default function HexagonsDemo() {
                                             // works even through z-stacked overlays
         hoverColor="rgba(0,243,255,0.15)"   // fill color on hover
         hoverBorderColor="#00f3ff"          // border color on hover ("" = no change)
-
-        borderGlowEffect={false}             // neon glow shadow on ALL borders
-        borderGlowColor="#00f3ff"           // glow color (independent of border color)
-        borderGlowRadius={10}               // glow blur radius in px
-
-        beamEffect={true}                   // beams flowing along hex edges
-        beamColor="#00f3ff"                 // hex or rgba — both fully supported
-        beamGlowColor="#00f3ff"
-        maxBeams={20}
-        beamSpeed={2}
-        beamLength={80}
-        beamSpawnProbability={0.08}
-
-        overlay={false}                      // dark vignette overlay
       />
 
       {/* Foreground content — hover detection works through this */}
       <div className="relative z-10 flex flex-col gap-4 items-center justify-center h-full">
         <h1 className="text-5xl font-bold text-white">HEX <span className="text-[#00f3ff]">GRID</span></h1>
-        <p className="text-cyan-100/80 max-w-sm mx-auto text-sm">Hover a cell. Watch the beams flow along the edges.</p>
       </div>
     </div>
   );
@@ -62,5 +45,28 @@ export default function HexagonsDemo() {
   </Tab>
 </Tabs>
 
+## Installation
+```npm
+npx shadcn@latest add @commercn/hexagon-background
+```
+
+## Example Usage
+
+```ts title="index.ts"
+const message = "Hello from Fumadocs!";
+console.log(message);
+```
 
 
+## Props
+| Prop                 | Type     | Default           | Description                                                                                     |
+|----------------------|----------|-------------------|-------------------------------------------------------------------------------------------------|
+| hexColor |	string |	"transparent" |	Fill color of each hexagon cell.
+| hexBorderColor |	string |	"rgba(0,243,255,0.25)"	| Stroke color for hexagon borders.
+| hexSize |	number |	40	| Circumradius of each hexagon in pixels.
+| borderWidth |	number |	1	| Stroke width of hexagon borders in pixels.
+| hoverEffect |	boolean |	true	| Enable hover effects. Controls both fill and border hover reactivity.
+
+## References
+- [Hexagon Grid Math](https://www.redblobgames.com/grids/hexagons/)
+- [CSS Border Glow](https://css-tricks.com/snippets/css/glowing-border/)
