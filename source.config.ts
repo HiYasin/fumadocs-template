@@ -16,6 +16,20 @@ export const docs = defineDocs({
   },
 });
 
+// New blog collection
+export const blogPosts = defineDocs({
+  dir: 'content/blogs',
+  docs: {
+    schema: pageSchema,
+    postprocess: {
+      includeProcessedMarkdown: true,
+    },
+  },
+  meta: {
+    schema: metaSchema,
+  },
+}); 
+
 export default defineConfig({
   mdxOptions: {
     // MDX options

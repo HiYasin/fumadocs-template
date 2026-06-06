@@ -1,0 +1,244 @@
+---
+title: New Blogs Route
+description: How to create a new route for blogs in Fumadocs.
+---
+## Question
+>Fumadocs create /docs page by default. But I want another route /blogs similar to docs. GIve me guide and codes according to latest fumadocs docs
+
+## Answer
+Yes. The cleanest approach is **not** to force `/blogs` into your existing `/docs` source. Instead, create a **second Fumadocs collection and source** for blogs. Fumadocs officially supports defining multiple collections such as docs and blog content. ([Fumadocs][1])
+
+## 1. Create a blog content directory
+
+```txt
+content/
+├── docs/
+│   ├── meta.json
+│   └── getting-started.mdx
+│
+└── blog/
+    ├── meta.json
+    ├── first-post.mdx
+    └── second-post.mdx
+```
+
+---
+
+## 2. Define a Blog Collection
+
+In `source.config.ts`:
+
+```ts title="source.config.ts"
+import {
+  defineDocs,
+  defineCollections,
+  frontmatterSchema,
+} from "fumadocs-mdx/config";
+import { z } from "zod";
+
+// Existing docs
+export const docs = defineDocs({
+  dir: "content/docs",
+});
+
+// New blog collection
+export const blogPosts = defineDocs({
+  dir: 'content/blogs',
+  docs: {
+    schema: pageSchema,
+    postprocess: {
+      includeProcessedMarkdown: true,
+    },
+  },
+  meta: {
+    schema: metaSchema,
+  },
+}); 
+```
+
+We can also use `defineCollections` if we want more control over the schema and processing.
+
+```ts
+export const blogPosts = defineCollections({
+  type: "doc",
+  dir: "content/blog",
+  schema: frontmatterSchema.extend({
+    author: z.string(),
+    publishedAt: z.string(),
+  }),
+});
+```
+
+Fumadocs recommends using `defineCollections()` for custom content types such as blogs. ([Fumadocs][1])
+
+---
+
+## 3. Create a Blog Source
+Create a new route in `lib/shared.ts`:
+
+```ts title="lib/shared.ts"
+export const blogRoute = '/blogs';
+```
+
+Add this to `lib/source.ts` if you want to keep it together:
+
+```ts title="lib/source.ts"
+import { blogPosts } from 'collections/server';
+import { loader } from 'fumadocs-core/source';
+import { lucideIconsPlugin } from 'fumadocs-core/source/lucide-icons';
+import { blogRoute } from './shared';
+
+export const blogSource = loader({
+  baseUrl: blogRoute,
+  source: blogPosts.toFumadocsSource(),
+  plugins: [lucideIconsPlugin()],
+});
+```
+
+Or, Create `lib/blog-source.ts`:
+
+```ts title="lib/blog-source.ts"
+import { loader } from "fumadocs-core/source";
+import { blogPosts } from "fumadocs-mdx:collections/server";
+
+export const blogSource = loader({
+  baseUrl: "/blogs",
+  source: blogPosts.toFumadocsSource(),
+});
+```
+
+The `baseUrl` controls the generated route structure. ([Fumadocs][2])
+
+---
+
+## 4. Create Blog Layout
+
+```txt
+app/
+├── blogs/
+│   ├── layout.tsx
+│   └── [[...slug]]/
+│       └── page.tsx
+```
+
+```tsx title="app/blogs/layout.tsx"
+import { DocsLayout } from "fumadocs-ui/layouts/docs";
+import { blogSource } from "@/lib/blog-source";
+
+export default function Layout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <DocsLayout tree={blogSource.pageTree}>
+      {children}
+    </DocsLayout>
+  );
+}
+```
+
+---
+
+## 5. Create Blog Catch-all Page
+
+Create route `app/blogs/[[...slug]]/page.tsx`
+
+```tsx title="app/blogs/[[...slug]]/page.tsx"
+import { notFound } from "next/navigation";
+import { blogSource } from "@/lib/blog-source";
+
+export default async function Page(props: {
+  params: Promise<{ slug?: string[] }>;
+}) {
+  const params = await props.params;
+
+  const page = blogSource.getPage(params.slug);
+
+  if (!page) notFound();
+
+  const MDX = page.data.body;
+
+  return (
+    <article className="prose mx-auto">
+      <h1>{page.data.title}</h1>
+      <MDX />
+    </article>
+  );
+}
+```
+
+---
+
+## 6. Add Navigation Link (Optional)
+
+If you want `/blogs` to appear in your main navigation, you can add a link to it. This is optional but recommended for discoverability.
+
+In your layout config:
+
+```tsx title="lib/layout.shared.tsx"
+import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
+
+export const baseOptions: BaseLayoutProps = {
+  links: [
+    {
+      text: "Docs",
+      url: "/docs",
+      active: "nested-url",
+    },
+    {
+      text: "Blog",
+      url: "/blogs",
+      active: "nested-url",
+    },
+  ],
+};
+```
+
+Fumadocs layouts support global navigation links this way. ([Fumadocs][3])
+
+---
+
+## Alternative (Recommended for Blogs)
+
+For a real blog, I would actually **not use `DocsLayout`**.
+
+Use:
+
+```txt
+/blogs
+  ├── page.tsx          // Blog listing
+  └── [slug]/page.tsx   // Individual post
+```
+
+and render MDX with Fumadocs MDX collections only. This gives you:
+
+* Blog index page
+* Featured posts
+* Categories/tags
+* Author info
+* Pagination
+* Better SEO
+
+while keeping:
+
+```txt
+/docs  -> documentation UI
+/blogs -> blog UI
+```
+
+This is very similar to how the Fumadocs website itself separates documentation and blog content. ([Fumadocs][4])
+
+For a **component library website**, I'd recommend:
+
+```txt
+/docs    -> Components, installation, usage
+/blogs   -> Updates, release notes, tutorials
+```
+
+rather than making `/blogs` look exactly like another docs section.
+
+[1]: https://www.fumadocs.dev/docs/mdx/collections?utm_source=chatgpt.com "Collections | Fumadocs"
+[2]: https://fumadocs.dev/docs/mdx/workspace?utm_source=chatgpt.com "Workspace | Fumadocs"
+[3]: https://v14.fumadocs.dev/docs/ui/navigation?utm_source=chatgpt.com "Navigation | Fumadocs"
+[4]: https://fumadocs.dev/blog/make-a-blog?utm_source=chatgpt.com "Making a Blog with Fumadocs | Fumadocs"

@@ -17,7 +17,7 @@ export function baseOptions(): BaseLayoutProps {
       },
       {
         text: "Blog",
-        url: "/blog",
+        url: "/blogs",
         active: "nested-url"
       },
     ]
