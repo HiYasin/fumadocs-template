@@ -1,0 +1,108 @@
+---
+title: ShadCN intigration guide
+description: A step-by-step guide to integrating ShadCN UI components into your Fumad
+---
+## Question
+>How to initiate latest shadcn in existing project?
+
+## Answer
+To initialize the latest Shadcn UI in an existing Next.js project, run:
+
+```bash
+npx shadcn@latest init
+```
+
+or with npm:
+
+```bash
+npm create shadcn@latest init
+```
+
+The CLI will:
+
+* Detect your framework (Next.js)
+* Detect Tailwind CSS
+* Ask where to place components
+* Configure aliases
+* Install dependencies
+* Update your CSS variables and theme configuration
+
+### Before running
+
+Make sure your project already has:
+
+* Next.js
+* Tailwind CSS installed and working
+* TypeScript (recommended)
+
+### Example initialization
+
+```bash
+npx shadcn@latest init
+```
+
+You may see prompts like:
+
+```txt
+Which base color would you like to use?
+❯ Neutral
+
+Where should components be installed?
+❯ components
+
+Where should utility functions be installed?
+❯ lib/utils
+
+Would you like to use CSS variables?
+❯ Yes
+```
+
+### After initialization
+
+Install components individually:
+
+```bash
+npx shadcn@latest add button
+```
+
+```bash
+npx shadcn@latest add input
+```
+
+```bash
+npx shadcn@latest add dialog
+```
+
+Or multiple at once:
+
+```bash
+npx shadcn@latest add button input dialog card
+```
+
+### For a Turborepo / Component Library
+
+If you're building:
+
+```txt
+apps/
+  docs/
+packages/
+  ui/
+```
+
+don't run Shadcn from the repository root. Instead:
+
+```bash
+cd packages/ui
+npx shadcn@latest init
+```
+
+Configure it so components are generated directly inside your `packages/ui` package.
+
+### If you're using Tailwind v4
+
+The latest Shadcn supports Tailwind v4 and will usually detect it automatically. If you encounter issues, check the official docs:
+
+[shadcn/ui Documentation](https://ui.shadcn.com/docs?utm_source=chatgpt.com)
+
+Since you're using Fumadocs, I recommend committing your current `globals.css` and Tailwind configuration before running the init command so you can easily review and merge any changes Shadcn makes.

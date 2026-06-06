@@ -1,0 +1,166 @@
+---
+title: Shareable Components Guide
+description: A guide to creating shareable components for your Fumadocs content
+---
+
+## Question
+>How to create preview components for my Fumadocs content?
+
+
+## Answer
+Yes, and that's actually one of the main reasons many component libraries use a monorepo.
+
+A common setup looks like this:
+
+```txt
+apps/
+├── docs/          # Next.js + Fumadocs
+├── web/           # Optional demo app
+
+packages/
+├── ui/            # Shareable Component files
+├── lib/           # Shareable Utility functions
+├── eslint-config/
+├── typescript-config/
+```
+
+### How component previews work
+
+Your components live in `packages/ui`:
+
+```tsx
+// packages/ui/src/button.tsx
+export function Button() {
+  return <button>Click me</button>;
+}
+```
+
+Then in your Fumadocs page:
+
+```tsx
+import { Button } from "@repo/ui";
+
+export default function Demo() {
+  return <Button />;
+}
+```
+
+Since the docs app is a Next.js application, the component is rendered live in the browser.
+
+You can create documentation examples like:
+
+```mdx
+# Button
+
+<Demo>
+  <Button />
+</Demo>
+```
+
+or
+
+```mdx
+import { Button } from "@repo/ui";
+
+<Button />
+```
+
+depending on how you've configured Fumadocs.
+
+---
+
+### This is how many popular libraries work
+
+Examples:
+
+* [shadcn/ui](https://ui.shadcn.com?utm_source=chatgpt.com)
+* [Chakra UI](https://chakra-ui.com?utm_source=chatgpt.com)
+* [Mantine](https://mantine.dev?utm_source=chatgpt.com)
+* [Radix UI](https://www.radix-ui.com?utm_source=chatgpt.com)
+
+Their docs sites render the actual components from their component packages.
+
+---
+
+### Benefits of the monorepo approach
+
+#### Single source of truth
+
+```txt
+packages/ui/button.tsx
+```
+
+There is only one Button component.
+
+The docs, demo app, and future projects all import the same component.
+
+---
+
+#### Changes update immediately
+
+If you modify:
+
+```tsx
+packages/ui/button.tsx
+```
+
+the docs preview updates automatically during development.
+
+---
+
+#### Better publishing
+
+Later, if you decide to:
+
+* Publish to npm
+* Create a component registry
+* Create a CLI installer
+* Build a commercial component library
+
+you're already using the architecture most libraries adopt.
+
+---
+
+### One thing to know about Shadcn
+
+Shadcn was originally designed to copy components into an application:
+
+```txt
+components/ui/button.tsx
+```
+
+For a component library, you'll usually:
+
+1. Generate components with Shadcn.
+2. Move/refactor them into `packages/ui`.
+3. Export them from a package entry point.
+
+Example:
+
+```ts
+// packages/ui/src/index.ts
+
+export * from "./button";
+export * from "./dialog";
+export * from "./input";
+```
+
+Then use:
+
+```tsx
+import { Button } from "@repo/ui";
+```
+
+inside Fumadocs.
+
+---
+
+For your goal (building a component collection with documentation, previews, and possibly future npm distribution), I would strongly recommend:
+
+```txt
+Turborepo
+├── apps/docs      (Next.js + Fumadocs)
+└── packages/ui    (Shadcn-based component library)
+```
+
+This gives you live previews in the docs while keeping the component library independent and reusable.
