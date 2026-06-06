@@ -9,3 +9,21 @@ export const gitConfig = {
   repo: 'fumadocs',
   branch: 'main',
 };
+
+export const tabItems = [
+  {
+    title: 'Docs',
+    description: 'The documentation',
+    icon: '📦',
+    url: '/docs',
+    active: 'nested-url',
+  },
+  {
+    title: 'Blogs',
+    description: 'The blog posts',
+    icon: '📝',
+    url: '/blogs',
+    active: 'nested-url',
+  }
+]
+

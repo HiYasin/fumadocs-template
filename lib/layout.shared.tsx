@@ -9,17 +9,17 @@ export function baseOptions(): BaseLayoutProps {
       title: <Logo />,
     },
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
-    links: [
-      {
-        text: "Documentation",
-        url: "/docs",
-        active: "nested-url"
-      },
-      {
-        text: "Blog",
-        url: "/blogs",
-        active: "nested-url"
-      },
-    ]
+    // links: [
+    //   {
+    //     text: "Documentation",
+    //     url: "/docs",
+    //     active: "nested-url"
+    //   },
+    //   {
+    //     text: "Blog",
+    //     url: "/blogs",
+    //     active: "nested-url"
+    //   },
+    // ]
   };
 }
