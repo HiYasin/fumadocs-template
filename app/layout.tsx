@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     ? new URL(`https://${process.env.VERCEL_URL}`)  // For Vercel deployments
     : new URL('http://localhost:3000'),              // For local development
   
-  title: 'Faial Fumadocs',
+  title: 'Faisal Fumadocs',
   description: 'This site is built with Fumadocs, the headless documentation framework for MDX-based docs sites.',
 }
 
