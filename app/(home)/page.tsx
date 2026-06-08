@@ -1,18 +1,17 @@
-import PageCounter from '@/components/ui/PageCounter';
-import Link from 'next/link';
+import { Hero } from "@/components/home/Hero";
+import { Marquee } from "@/components/home/Marquee";
+import { Footer } from "@/components/shared/Footer";
+import { CallToAction } from "@/components/home/CallToAction";
+import { Categories } from "@/components/home/Categories";
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col justify-center text-center flex-1">
-      <h1 className="text-2xl font-bold mb-4">Hello World</h1>
-      <p>
-        You can open{' '}
-        <Link href="/docs" className="font-medium underline">
-          /docs
-        </Link>{' '}
-        and see the documentation.
-      </p>
-      <PageCounter />
-    </div>
+    <main id="top" className="min-h-svh text-black dark:text-white w-full overflow-hidden home-bg-pattern">
+      <Hero />
+      <Marquee />
+      <Categories />
+      <CallToAction />
+      <Footer />
+    </main>
   );
 }
